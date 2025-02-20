@@ -1,0 +1,7 @@
+[package]
+name = "verglas-examples"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+verglas = { path = "../" }
