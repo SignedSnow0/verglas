@@ -1,9 +1,9 @@
-use crate::http::Method;
+use crate::http::{Method, Request, Response};
 
 pub struct Route {
-    pub uri: String,
+    pub path: String,
     pub method: Method,
-    pub handler: fn() -> String,
+    pub handler: fn(&Request) -> Response,
 }
 
 pub struct Router {
@@ -32,13 +32,13 @@ impl RouterBuilder {
 }
 
 impl Router {
-    pub fn dispatch(&self, uri: &str, method: Method) -> String {
+    pub fn dispatch(&self, request: &Request) -> Response {
         for route in &self.routes {
-            if route.uri == uri && route.method == method {
-                return (route.handler)();
+            if route.path == request.uri.path && route.method == request.method {
+                return (route.handler)(request);
             }
         }
 
-        String::new()
+        Response::not_found()
     }
 }
