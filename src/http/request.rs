@@ -1,9 +1,20 @@
-use super::{Request, RequestCookie};
+use super::{cookie::RequestCookie, Method, Uri, Version};
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, Read},
     net::TcpStream,
 };
+
+// https://datatracker.ietf.org/doc/html/rfc2616#section-5\
+#[derive(Debug)]
+pub struct Request {
+    pub method: Method,
+    pub uri: Uri,
+    pub version: Version,
+    pub headers: HashMap<String, String>,
+    pub body: Option<String>,
+    pub cookies: Vec<RequestCookie>,
+}
 
 impl Request {
     pub fn contains_header(&self, header: &str) -> bool {
@@ -241,7 +252,7 @@ impl TryFrom<&str> for Request {
 
 #[cfg(test)]
 mod test {
-    use crate::http::{Method, Request};
+    use crate::http::{request::Request, Method};
 
     #[test]
     fn parse_request() {

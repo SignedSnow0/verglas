@@ -1,4 +1,8 @@
-use crate::http::{Method, Request, Response};
+use crate::http::{
+    request::Request,
+    response::{Response, ResponseBuilder},
+    Method,
+};
 
 pub struct Route {
     pub path: String,
@@ -39,6 +43,6 @@ impl Router {
             }
         }
 
-        Response::not_found()
+        ResponseBuilder::new().not_found().build()
     }
 }

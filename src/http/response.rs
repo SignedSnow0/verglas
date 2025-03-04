@@ -1,37 +1,88 @@
-use super::{Cookie, Response};
+use super::cookie::Cookie;
 
 // https://datatracker.ietf.org/doc/html/rfc2616#section-6
-impl Response {
-    pub fn empty() -> Self {
-        Self {
-            status_code: 200,
-            body: "".to_string(),
-            cookies: Default::default(),
+#[derive(Debug)]
+pub struct Response {
+    status_code: u16,
+    body: Option<String>,
+    cookies: Vec<Cookie>,
+}
+
+#[derive(Default, Clone)]
+pub struct NoStatusCode;
+#[derive(Default, Clone)]
+pub struct StatusCode(u16);
+
+#[derive(Default)]
+pub struct ResponseBuilder<TStatusCode> {
+    status_code: TStatusCode,
+    body: Option<String>,
+    cookies: Vec<Cookie>,
+}
+
+impl ResponseBuilder<NoStatusCode> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_status_code(self, status_code: u16) -> ResponseBuilder<StatusCode> {
+        ResponseBuilder {
+            status_code: StatusCode(status_code),
+            body: self.body,
+            cookies: self.cookies,
         }
     }
 
-    pub fn not_found() -> Self {
-        Self {
-            status_code: 404,
-            body: "".to_string(),
-            cookies: Default::default(),
+    pub fn empty(self) -> ResponseBuilder<StatusCode> {
+        ResponseBuilder {
+            status_code: StatusCode(200),
+            body: None,
+            cookies: self.cookies,
         }
     }
 
-    pub fn internal_server_error() -> Self {
-        Self {
-            status_code: 500,
-            body: "".to_string(),
-            cookies: Default::default(),
+    pub fn not_found(self) -> ResponseBuilder<StatusCode> {
+        ResponseBuilder {
+            status_code: StatusCode(404),
+            body: None,
+            cookies: self.cookies,
         }
     }
 
-    pub fn add_cookie(&mut self, cookie: Cookie) {
-        if self.cookies.iter().any(|c| c.key == cookie.key) {
-            return;
+    pub fn internal_server_error(self) -> ResponseBuilder<StatusCode> {
+        ResponseBuilder {
+            status_code: StatusCode(200),
+            body: self.body,
+            cookies: self.cookies,
         }
+    }
+}
 
-        self.cookies.push(cookie);
+impl<TStatusCode> ResponseBuilder<TStatusCode> {
+    pub fn with_body(self, body: &str) -> ResponseBuilder<TStatusCode> {
+        ResponseBuilder {
+            status_code: self.status_code,
+            body: Some(body.to_string()),
+            cookies: self.cookies,
+        }
+    }
+
+    pub fn with_cookies(self, cookies: Vec<Cookie>) -> ResponseBuilder<TStatusCode> {
+        ResponseBuilder {
+            status_code: self.status_code,
+            body: self.body,
+            cookies,
+        }
+    }
+}
+
+impl ResponseBuilder<StatusCode> {
+    pub fn build(self) -> Response {
+        Response {
+            status_code: self.status_code.0,
+            body: self.body,
+            cookies: self.cookies,
+        }
     }
 }
 
@@ -43,7 +94,10 @@ impl From<&Response> for String {
             _ => "Internal Server Error",
         };
 
-        let content_length = value.body.len();
+        let content_length = match &value.body {
+            Some(body) => body.len(),
+            None => 0,
+        };
 
         let response = format!(
             "HTTP/1.1 {} {}\r\nContent-Length: {}\r\n",
@@ -54,39 +108,45 @@ impl From<&Response> for String {
             format!("{}{}", acc, String::from(cookie))
         });
 
-        if value.body.is_empty() {
-            format!("{}\r\n", response)
-        } else {
-            format!("{}\r\n{}", response, value.body)
+        match &value.body {
+            Some(body) => format!("{}\r\n{}", response, body),
+            None => format!("{}\r\n", response),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::http::cookie::CookieBuilder;
+
     use super::*;
 
     #[test]
     fn test_empty_responses() {
-        let response = Response::empty();
+        let response = ResponseBuilder::new().empty().build();
         let expected = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
         assert_eq!(String::from(&response), expected);
 
-        let response = Response::not_found();
+        let response = ResponseBuilder::new().not_found().build();
         let expected = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
         assert_eq!(String::from(&response), expected);
 
-        let response = Response::internal_server_error();
+        let response = ResponseBuilder::new().internal_server_error().build();
         let expected = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
         assert_eq!(String::from(&response), expected);
     }
 
     #[test]
     fn test_cookies() {
-        let cookie = Cookie::new("key", "value");
+        let cookie = CookieBuilder::new()
+            .with_key("key")
+            .with_value("value")
+            .build();
 
-        let mut response = Response::empty();
-        response.add_cookie(cookie);
+        let response = ResponseBuilder::new()
+            .empty()
+            .with_cookies(vec![cookie])
+            .build();
 
         let expected = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nSet-Cookie: key=value\r\n\r\n";
 

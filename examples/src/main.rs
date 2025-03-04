@@ -1,6 +1,6 @@
 use verglas::{
     core::Server,
-    http::{Cookie, Method, Response},
+    http::{cookie::CookieBuilder, response::ResponseBuilder, Method},
     router::{Route, RouterBuilder},
 };
 
@@ -10,6 +10,8 @@ fn main() {
             path: "/".to_string(),
             method: Method::Get,
             handler: |request| {
+                let cookie_counter = CookieBuilder::new().with_key("counter");
+
                 let cookie_counter = match request.get_cookie("counter") {
                     Some(cookie) => {
                         let counter = match cookie.value.parse::<u32>() {
@@ -17,18 +19,16 @@ fn main() {
                             Err(_) => 1,
                         };
 
-                        Cookie::new("counter", counter.to_string().as_str())
+                        cookie_counter.with_value(counter.to_string().as_str())
                     }
-                    None => Cookie::new("counter", "1"),
+                    None => cookie_counter.with_value("1"),
                 };
 
-                let mut response = Response {
-                    status_code: 200,
-                    body: "Hello, GET!".to_string(),
-                    cookies: Default::default(),
-                };
-
-                response.add_cookie(cookie_counter);
+                let response = ResponseBuilder::new()
+                    .empty()
+                    .with_body("Hello, GET!")
+                    .with_cookies(vec![cookie_counter.build()])
+                    .build();
 
                 println!("{}", String::from(&response));
 
@@ -38,10 +38,11 @@ fn main() {
         .with_route(Route {
             path: "/".to_string(),
             method: Method::Post,
-            handler: |_request| Response {
-                status_code: 200,
-                body: "Hello, POST!".to_string(),
-                cookies: Default::default(),
+            handler: |_request| {
+                ResponseBuilder::new()
+                    .empty()
+                    .with_body("Hello, POST!")
+                    .build()
             },
         })
         .build();

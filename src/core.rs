@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    http::{Request, Response},
+    http::{request::Request, response::ResponseBuilder},
     router::Router,
 };
 
@@ -72,8 +72,10 @@ impl Server {
                     }
                 }
                 Err(e) => {
-                    let mut response = Response::internal_server_error();
-                    response.body = e.to_string();
+                    let response = ResponseBuilder::new()
+                        .internal_server_error()
+                        .with_body(e)
+                        .build();
 
                     stream
                         .write_all(String::from(&response).as_bytes())
