@@ -1,4 +1,4 @@
-use super::Request;
+use super::{Request, RequestCookie};
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, Read},
@@ -12,6 +12,10 @@ impl Request {
 
     pub fn get_header(&self, header: &str) -> Option<&String> {
         self.headers.get(header)
+    }
+
+    pub fn get_cookie(&self, key: &str) -> Option<&RequestCookie> {
+        self.cookies.iter().find(|cookie| cookie.key == key)
     }
 }
 
@@ -73,43 +77,62 @@ impl TryFrom<&mut TcpStream> for Request {
             })
             .collect();
 
-        match headers.get("Content-Lenght") {
-            Some(lenght) => {
-                let Ok(length) = lenght.parse::<u32>() else {
-                    return Err("Error parsing content lenght");
-                };
+        let cookies = match headers.get("Cookie") {
+            Some(cookies) => cookies
+                .split("; ")
+                .map_while(|cookie| {
+                    let mut tokens = cookie.splitn(2, '=');
 
-                if length == 0 {
+                    let key = if let Some(key) = tokens.next() {
+                        key.to_owned()
+                    } else {
+                        return None;
+                    };
+
+                    let value = if let Some(value) = tokens.next() {
+                        value.to_owned()
+                    } else {
+                        return None;
+                    };
+
+                    Some(RequestCookie { key, value })
+                })
+                .collect(),
+            None => vec![],
+        };
+
+        let body = match headers.get("Content-Length") {
+            Some(content_length) => {
+                let content_length = content_length.parse::<u32>().unwrap();
+                if content_length == 0 {
                     return Ok(Self {
                         method,
                         uri,
                         version,
                         headers,
                         body: None,
+                        cookies,
                     });
                 }
 
-                let mut body = vec![0; length as usize];
+                let mut body = vec![0; content_length as usize];
                 reader.read_exact(&mut body).unwrap();
 
                 let body = String::from_utf8(body).unwrap();
 
-                Ok(Self {
-                    method,
-                    uri,
-                    version,
-                    headers,
-                    body: Some(body),
-                })
+                Some(body)
             }
-            None => Ok(Self {
-                method,
-                uri,
-                version,
-                headers,
-                body: None,
-            }),
-        }
+            None => None,
+        };
+
+        Ok(Self {
+            method,
+            uri,
+            version,
+            headers,
+            body,
+            cookies,
+        })
     }
 }
 
@@ -157,7 +180,31 @@ impl TryFrom<&str> for Request {
             })
             .collect::<HashMap<_, _>>();
 
-        match headers.get("Content-Length") {
+        let cookies = match headers.get("Cookie") {
+            Some(cookies) => cookies
+                .split("; ")
+                .map_while(|cookie| {
+                    let mut tokens = cookie.splitn(2, '=');
+
+                    let key = if let Some(key) = tokens.next() {
+                        key.to_owned()
+                    } else {
+                        return None;
+                    };
+
+                    let value = if let Some(value) = tokens.next() {
+                        value.to_owned()
+                    } else {
+                        return None;
+                    };
+
+                    Some(RequestCookie { key, value })
+                })
+                .collect(),
+            None => vec![],
+        };
+
+        let body = match headers.get("Content-Length") {
             Some(content_length) => {
                 let content_length = content_length.parse::<u32>().unwrap();
                 if content_length == 0 {
@@ -167,32 +214,28 @@ impl TryFrom<&str> for Request {
                         version,
                         headers,
                         body: None,
+                        cookies,
                     });
                 }
 
                 let body_start = value.len() - content_length as usize;
                 let body = value.as_bytes()[body_start..].to_vec();
 
-                Ok(Self {
-                    method,
-                    uri,
-                    version,
-                    headers,
-                    body: Some(String::from_utf8(body).unwrap()),
-                })
+                let body = String::from_utf8(body).unwrap();
+
+                Some(body)
             }
-            None => {
-                return {
-                    Ok(Self {
-                        method,
-                        uri,
-                        version,
-                        headers,
-                        body: None,
-                    })
-                }
-            }
-        }
+            None => None,
+        };
+
+        Ok(Self {
+            method,
+            uri,
+            version,
+            headers,
+            body,
+            cookies,
+        })
     }
 }
 

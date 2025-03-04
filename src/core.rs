@@ -62,7 +62,9 @@ impl Server {
                 Ok(request) => {
                     let response = router.dispatch(&request);
 
-                    stream.write_all(String::from(response).as_bytes()).unwrap();
+                    stream
+                        .write_all(String::from(&response).as_bytes())
+                        .unwrap();
 
                     match request.get_header("Connection") {
                         Some(connection) if connection == "close" => break,
@@ -73,7 +75,9 @@ impl Server {
                     let mut response = Response::internal_server_error();
                     response.body = e.to_string();
 
-                    stream.write_all(String::from(response).as_bytes()).unwrap();
+                    stream
+                        .write_all(String::from(&response).as_bytes())
+                        .unwrap();
                 }
             }
         }
