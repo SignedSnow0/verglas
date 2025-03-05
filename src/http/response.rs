@@ -51,7 +51,7 @@ impl ResponseBuilder<NoStatusCode> {
 
     pub fn internal_server_error(self) -> ResponseBuilder<StatusCode> {
         ResponseBuilder {
-            status_code: StatusCode(200),
+            status_code: StatusCode(500),
             body: self.body,
             cookies: self.cookies,
         }
@@ -124,16 +124,22 @@ mod tests {
     #[test]
     fn test_empty_responses() {
         let response = ResponseBuilder::new().empty().build();
-        let expected = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-        assert_eq!(String::from(&response), expected);
+        assert_eq!(
+            String::from(&response),
+            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+        );
 
         let response = ResponseBuilder::new().not_found().build();
-        let expected = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-        assert_eq!(String::from(&response), expected);
+        assert_eq!(
+            String::from(&response),
+            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+        );
 
         let response = ResponseBuilder::new().internal_server_error().build();
-        let expected = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
-        assert_eq!(String::from(&response), expected);
+        assert_eq!(
+            String::from(&response),
+            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n"
+        );
     }
 
     #[test]

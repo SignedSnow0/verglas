@@ -140,7 +140,7 @@ pub struct RequestCookie {
 
 impl From<&Cookie> for String {
     fn from(value: &Cookie) -> Self {
-        let cookie_str = "Set-Cookie: ".to_string();
+        let cookie_str = "Set-Cookie:".to_string();
         let cookie_str = format!("{} {}={}", cookie_str, value.key, value.value);
 
         let cookie_str = match &value.domain {
@@ -210,6 +210,6 @@ mod test {
             .with_value("testvalue")
             .build();
 
-        assert_eq!(String::from(&cookie), "Set-Cookie: testkey=testvalue");
+        assert_eq!(String::from(&cookie), "Set-Cookie: testkey=testvalue\r\n");
     }
 }
